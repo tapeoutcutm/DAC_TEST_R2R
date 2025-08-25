@@ -1,4 +1,4 @@
-name: LVS Check
+name: lvs
 
 on:
   push:
@@ -6,40 +6,49 @@ on:
 
 jobs:
   lvs:
-    runs-on: ubuntu-24.04
-
+    runs-on: ubuntu-latest
     steps:
-      # Step 1: Checkout repository on the host machine
-      - name: Checkout Repository
+      - name: checkout repo
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-      # Step 2: Pull OpenLane container image
-      - name: Pull OpenLane Docker Image
-        run: docker pull efabless/openlane:latest
-
-      # Step 3: Run LVS with Magic and Netgen inside container
-      - name: Run LVS inside OpenLane Container
+      - name: Set up environment variables
+        shell: bash
         run: |
-          docker run --rm \
-            -v $GITHUB_WORKSPACE:/work \
-            efabless/openlane:latest \
-            bash -c "
-              set -e
-              cd /work
-              export PDK_ROOT=/opt/pdk
+          cat << EOF >> $GITHUB_ENV
+          PDK_ROOT=/home/runner/pdk
+          PDK=sky130A
+          MAGIC_VERSION=master
+          NETGEN_VERSION=master
+          EOF
+  
+      - name: Install Sky130 PDK
+        uses: TinyTapeout/volare-action@v1
+        with:
+          pdk_name: sky130
+          pdk_version: 78b7bc32ddb4b6f14f76883c2e2dc5b5de9d1cbc
+          pdk_root: /home/runner/pdk
 
-              echo 'Running Magic extraction...'
-              magic -dnull -noconsole <<EOF
-              gds read layout.gds
-              load topcell
-              extract all
-              ext2spice lvs
-              quit
-EOF
-
-              echo 'Running LVS with Netgen...'
-              netgen -batch lvs \
-                'layout.spice topcell' \
-                'schematic.spice topcell' \
-                \$PDK_ROOT/sky130A/libs.tech/netgen/sky130A_setup.tcl
-            "
+      - name: Magic
+        shell: bash
+        run: |
+            sudo apt-get install -y m4 python3 libx11-dev tcl-dev tk-dev libcairo2-dev mesa-common-dev libglu1-mesa-dev
+            git clone -b $MAGIC_VERSION https://github.com/RTimothyEdwards/magic /tmp/magic
+            cd /tmp/magic
+            ./configure
+            make -j4 
+            sudo make install
+      - name: Netgen
+        shell: bash
+        run: |
+            git clone -b $NETGEN_VERSION https://github.com/RTimothyEdwards/netgen /tmp/netgen
+            cd /tmp/netgen
+            ./configure
+            make -j4 
+            sudo make install
+      - name: Run LVS
+        shell: bash
+        run: |
+            cd mag
+            make lvs
