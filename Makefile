@@ -1,5 +1,5 @@
 PROJECT_NAME := r2r_dac_control
-# needs PDK_ROOT and OPENLANE_ROOT, OPENLANE_IMAGE_NAME set from your environment
+
 harden:
 	docker run --rm \
 	-v $(OPENLANE_ROOT):/openlane \
@@ -14,3 +14,10 @@ harden:
 update_files:
 	cp openlane/$(PROJECT_NAME)/runs/$(PROJECT_NAME)/results/final/gds/$(PROJECT_NAME).gds gds
 	cp openlane/$(PROJECT_NAME)/runs/$(PROJECT_NAME)/results/final/verilog/gl/$(PROJECT_NAME).v verilog/gl/
+
+lvs:
+	netgen -batch lvs \
+	"openlane/$(PROJECT_NAME)/runs/$(PROJECT_NAME)/results/final/spice/$(PROJECT_NAME).spice $(PROJECT_NAME)" \
+	"verilog/gl/$(PROJECT_NAME).v $(PROJECT_NAME)" \
+	$$(PDK_ROOT)/sky130A/libs.tech/netgen/sky130A_setup.tcl \
+	| tee lvs.log
