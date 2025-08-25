@@ -7,8 +7,6 @@ on:
 jobs:
   gds:
     runs-on: ubuntu-24.04
-    outputs:
-      viewer_check_exists: ${{ steps.viewer_check.outputs.exists }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -19,7 +17,7 @@ jobs:
         uses: mikefarah/yq@v4
         id: top_module
         with:
-          cmd: echo "TOP_MODULE=$(yq '.project.top_module' info.yaml)" >> $GITHUB_OUTPUT
+          cmd: echo TOP_MODULE=`yq '.project.top_module' info.yaml` > $GITHUB_OUTPUT
 
       - name: Create and publish the GDS artifact
         uses: TinyTapeout/tt-gds-action/custom_gds@tt10
@@ -29,28 +27,12 @@ jobs:
           lef_path: lef/${{ steps.top_module.outputs.TOP_MODULE }}.lef
           verilog_path: src/project.v
 
-      # Debug step: list all files after GDS generation
-      - name: Debug: List all files after GDS generation
-        run: |
-          echo "Current workspace structure:"
-          ls -R
-
-      - name: Check if viewer files exist
-        id: viewer_check
-        run: |
-          if [ -d "./viewer" ] && [ "$(ls -A ./viewer)" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-
+      # Upload the viewer files as artifact for later use in viewer job
       - name: Upload Viewer Files
-        if: steps.viewer_check.outputs.exists == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: viewer-files
-          path: ./viewer
-          if-no-files-found: error
+          path: ./viewer   # Adjust if viewer files are generated elsewhere
 
   precheck:
     needs: gds
@@ -61,7 +43,6 @@ jobs:
 
   viewer:
     needs: gds
-    if: needs.gds.outputs.viewer_check_exists == 'true'
     runs-on: ubuntu-24.04
     permissions:
       pages: write
@@ -71,15 +52,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: viewer-files
-          path: ./public
+          path: ./public  # Pages expects the site files in ./public
 
+      # Configure GitHub Pages
       - name: Configure Pages
         uses: actions/configure-pages@v4
 
+      # Upload artifact for Pages deployment
       - name: Upload artifact to GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./public
 
+      # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
