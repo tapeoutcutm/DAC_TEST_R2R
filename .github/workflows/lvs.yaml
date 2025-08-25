@@ -6,91 +6,65 @@ on:
 
 jobs:
   lvs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Set up environment variables
-        shell: bash
-        run: |
-          echo "PDK_ROOT=/home/runner/pdk" >> $GITHUB_ENV
-          echo "PDK=sky130A" >> $GITHUB_ENV
-          echo "MAGIC_VERSION=master" >> $GITHUB_ENV
-          echo "NETGEN_VERSION=master" >> $GITHUB_ENV
-          echo "TOP_MODULE=$(yq '.project.top_module' info.yaml)" >> $GITHUB_ENV
-
-      - name: Install Sky130 PDK
-        uses: TinyTapeout/volare-action@v1
-        with:
-          pdk_name: sky130
-          pdk_version: 78b7bc32ddb4b6f14f76883c2e2dc5b5de9d1cbc
-          pdk_root: /home/runner/pdk
-
-      - name: Install Magic
-        shell: bash
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y m4 python3 libx11-dev tcl-dev tk-dev libcairo2-dev mesa-common-dev libglu1-mesa-dev
-          git clone -b $MAGIC_VERSION https://github.com/RTimothyEdwards/magic /tmp/magic
-          cd /tmp/magic
-          ./configure
-          make -j$(nproc)
-          sudo make install
+          sudo apt-get install -y magic netgen
 
-      - name: Install Netgen
-        shell: bash
+      - name: Set up PDK
         run: |
-          git clone -b $NETGEN_VERSION https://github.com/RTimothyEdwards/netgen /tmp/netgen
-          cd /tmp/netgen
-          ./configure
-          make -j$(nproc)
-          sudo make install
+          export PDK_ROOT=$GITHUB_WORKSPACE/pdk
+          mkdir -p $PDK_ROOT
+          # Download PDK if not cached
+          if [ ! -d "$PDK_ROOT/sky130A" ]; then
+            git clone --depth=1 https://github.com/google/skywater-pdk $PDK_ROOT/skywater-pdk
+            git clone --depth=1 https://github.com/efabless/sky130_fd_sc_hd $PDK_ROOT/sky130_fd_sc_hd
+          fi
 
       - name: Extract SPICE from Layout using Magic
-        shell: bash
         run: |
-          cd mag
-          if [ ! -f "${TOP_MODULE}.mag" ]; then
-            echo "ERROR: ${TOP_MODULE}.mag not found in mag/ directory!"
-            exit 1
-          fi
-          magic -dnull -noconsole << EOF
-          load ${TOP_MODULE}
+          export PDK_ROOT=$GITHUB_WORKSPACE/pdk
+          export PDK=sky130A
+          export MAGTYPE=mag
+          export GDS_FILE=gds/tt_um_mattvenn_r2r_dac_3v3.gds
+          export CELL_NAME=tt_um_mattvenn_r2r_dac_3v3
+
+          magic -dnull -noconsole <<EOF
+          gds read $GDS_FILE
+          load $CELL_NAME
+          timestamp
           extract all
           ext2spice lvs
           quit
           EOF
-          if [ ! -f "${TOP_MODULE}.spice" ]; then
-            echo "ERROR: SPICE extraction failed, ${TOP_MODULE}.spice not generated."
+
+          if [ ! -f "$CELL_NAME.spice" ]; then
+            echo "ERROR: SPICE extraction failed"
             exit 1
           fi
 
       - name: Run LVS with Netgen
-        shell: bash
         run: |
-          cd mag
-          netgen -batch lvs \
-            "${TOP_MODULE}.spice ${TOP_MODULE}" \
-            "../src/${TOP_MODULE}.v ${TOP_MODULE}" \
-            $PDK_ROOT/$PDK/libs.tech/netgen/sky130A_setup.tcl \
-            lvs.report || true
-          if [ ! -f "lvs.report" ]; then
-            echo "ERROR: LVS did not generate lvs.report"
-            exit 1
-          fi
+          export PDK_ROOT=$GITHUB_WORKSPACE/pdk
+          export PDK=sky130A
+          export CELL_NAME=tt_um_mattvenn_r2r_dac_3v3
+          netgen -batch lvs "$CELL_NAME.spice $CELL_NAME" "verilog/gl/$CELL_NAME.v $CELL_NAME" $PDK_ROOT/$PDK/libs.tech/netgen/sky130A_setup.tcl lvs_report.out
 
       - name: Check LVS Report
-        shell: bash
         run: |
-          cd mag
-          if grep -q "Final result: Circuits match uniquely" lvs.report; then
-            echo "✅ LVS PASSED"
+          if grep -q "Netlists match" lvs_report.out; then
+            echo "LVS PASSED"
           else
-            echo "❌ LVS FAILED"
-            cat lvs.report
+            echo "LVS FAILED"
+            cat lvs_report.out
             exit 1
           fi
 
@@ -98,4 +72,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lvs-report
-          path: mag/lvs.report
+          path: lvs_report.out
