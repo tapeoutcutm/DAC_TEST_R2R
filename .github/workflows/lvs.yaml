@@ -16,13 +16,11 @@ jobs:
       - name: Set up environment variables
         shell: bash
         run: |
-          cat << EOF >> $GITHUB_ENV
-          PDK_ROOT=/home/runner/pdk
-          PDK=sky130A
-          MAGIC_VERSION=master
-          NETGEN_VERSION=master
-          TOP_MODULE=$(yq '.project.top_module' info.yaml)
-          EOF
+          echo "PDK_ROOT=/home/runner/pdk" >> $GITHUB_ENV
+          echo "PDK=sky130A" >> $GITHUB_ENV
+          echo "MAGIC_VERSION=master" >> $GITHUB_ENV
+          echo "NETGEN_VERSION=master" >> $GITHUB_ENV
+          echo "TOP_MODULE=$(yq '.project.top_module' info.yaml)" >> $GITHUB_ENV
 
       - name: Install Sky130 PDK
         uses: TinyTapeout/volare-action@v1
@@ -55,12 +53,20 @@ jobs:
         shell: bash
         run: |
           cd mag
+          if [ ! -f "${TOP_MODULE}.mag" ]; then
+            echo "ERROR: ${TOP_MODULE}.mag not found in mag/ directory!"
+            exit 1
+          fi
           magic -dnull -noconsole << EOF
           load ${TOP_MODULE}
           extract all
           ext2spice lvs
           quit
           EOF
+          if [ ! -f "${TOP_MODULE}.spice" ]; then
+            echo "ERROR: SPICE extraction failed, ${TOP_MODULE}.spice not generated."
+            exit 1
+          fi
 
       - name: Run LVS with Netgen
         shell: bash
@@ -70,16 +76,26 @@ jobs:
             "${TOP_MODULE}.spice ${TOP_MODULE}" \
             "../src/${TOP_MODULE}.v ${TOP_MODULE}" \
             $PDK_ROOT/$PDK/libs.tech/netgen/sky130A_setup.tcl \
-            lvs.report
+            lvs.report || true
+          if [ ! -f "lvs.report" ]; then
+            echo "ERROR: LVS did not generate lvs.report"
+            exit 1
+          fi
 
       - name: Check LVS Report
         shell: bash
         run: |
           cd mag
           if grep -q "Final result: Circuits match uniquely" lvs.report; then
-            echo "LVS PASSED"
+            echo "✅ LVS PASSED"
           else
-            echo "LVS FAILED"
+            echo "❌ LVS FAILED"
             cat lvs.report
             exit 1
           fi
+
+      - name: Upload LVS Report as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lvs-report
+          path: mag/lvs.report
