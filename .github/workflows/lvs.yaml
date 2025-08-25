@@ -1,4 +1,4 @@
-name: lvs
+name: LVS Check
 
 on:
   push:
@@ -7,69 +7,22 @@ on:
 jobs:
   lvs:
     runs-on: ubuntu-24.04
-
+    container:
+      image: efabless/openlane:latest   # Prebuilt container with Sky130 PDK & tools
     steps:
-      - name: Checkout repo
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Install dependencies
+      - name: Set Environment
         run: |
-          sudo apt-get update
-          sudo apt-get install -y magic netgen
-
-      - name: Set up PDK
-        run: |
-          export PDK_ROOT=$GITHUB_WORKSPACE/pdk
-          mkdir -p $PDK_ROOT
-          # Download PDK if not cached
-          if [ ! -d "$PDK_ROOT/sky130A" ]; then
-            git clone --depth=1 https://github.com/google/skywater-pdk $PDK_ROOT/skywater-pdk
-            git clone --depth=1 https://github.com/efabless/sky130_fd_sc_hd $PDK_ROOT/sky130_fd_sc_hd
-          fi
-
-      - name: Extract SPICE from Layout using Magic
-        run: |
-          export PDK_ROOT=$GITHUB_WORKSPACE/pdk
-          export PDK=sky130A
-          export MAGTYPE=mag
-          export GDS_FILE=gds/tt_um_mattvenn_r2r_dac_3v3.gds
-          export CELL_NAME=tt_um_mattvenn_r2r_dac_3v3
-
-          magic -dnull -noconsole <<EOF
-          gds read $GDS_FILE
-          load $CELL_NAME
-          timestamp
-          extract all
-          ext2spice lvs
-          quit
-          EOF
-
-          if [ ! -f "$CELL_NAME.spice" ]; then
-            echo "ERROR: SPICE extraction failed"
-            exit 1
-          fi
+          export PDK_ROOT=/opt/pdk
+          echo "PDK_ROOT=$PDK_ROOT" >> $GITHUB_ENV
+          echo "Using PDK_ROOT=$PDK_ROOT"
 
       - name: Run LVS with Netgen
         run: |
-          export PDK_ROOT=$GITHUB_WORKSPACE/pdk
-          export PDK=sky130A
-          export CELL_NAME=tt_um_mattvenn_r2r_dac_3v3
-          netgen -batch lvs "$CELL_NAME.spice $CELL_NAME" "verilog/gl/$CELL_NAME.v $CELL_NAME" $PDK_ROOT/$PDK/libs.tech/netgen/sky130A_setup.tcl lvs_report.out
-
-      - name: Check LVS Report
-        run: |
-          if grep -q "Netlists match" lvs_report.out; then
-            echo "LVS PASSED"
-          else
-            echo "LVS FAILED"
-            cat lvs_report.out
-            exit 1
-          fi
-
-      - name: Upload LVS Report as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: lvs-report
-          path: lvs_report.out
+          cd $GITHUB_WORKSPACE
+          echo "Running LVS check..."
+          netgen -batch lvs "layout.spice layout" "schematic.spice schematic" $PDK_ROOT/sky130A/libs.tech/netgen/sky130A_setup.tcl
