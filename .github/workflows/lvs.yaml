@@ -7,22 +7,39 @@ on:
 jobs:
   lvs:
     runs-on: ubuntu-24.04
-    container:
-      image: efabless/openlane:latest   # Prebuilt container with Sky130 PDK & tools
+
     steps:
+      # Step 1: Checkout repository on the host machine
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Set Environment
-        run: |
-          export PDK_ROOT=/opt/pdk
-          echo "PDK_ROOT=$PDK_ROOT" >> $GITHUB_ENV
-          echo "Using PDK_ROOT=$PDK_ROOT"
+      # Step 2: Pull OpenLane container image
+      - name: Pull OpenLane Docker Image
+        run: docker pull efabless/openlane:latest
 
-      - name: Run LVS with Netgen
+      # Step 3: Run LVS with Magic and Netgen inside container
+      - name: Run LVS inside OpenLane Container
         run: |
-          cd $GITHUB_WORKSPACE
-          echo "Running LVS check..."
-          netgen -batch lvs "layout.spice layout" "schematic.spice schematic" $PDK_ROOT/sky130A/libs.tech/netgen/sky130A_setup.tcl
+          docker run --rm \
+            -v $GITHUB_WORKSPACE:/work \
+            efabless/openlane:latest \
+            bash -c "
+              set -e
+              cd /work
+              export PDK_ROOT=/opt/pdk
+
+              echo 'Running Magic extraction...'
+              magic -dnull -noconsole <<EOF
+              gds read layout.gds
+              load topcell
+              extract all
+              ext2spice lvs
+              quit
+EOF
+
+              echo 'Running LVS with Netgen...'
+              netgen -batch lvs \
+                'layout.spice topcell' \
+                'schematic.spice topcell' \
+                \$PDK_ROOT/sky130A/libs.tech/netgen/sky130A_setup.tcl
+            "
