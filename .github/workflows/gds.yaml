@@ -29,6 +29,12 @@ jobs:
           lef_path: lef/${{ steps.top_module.outputs.TOP_MODULE }}.lef
           verilog_path: src/project.v
 
+      # Debug step: list all files after GDS generation
+      - name: Debug: List all files after GDS generation
+        run: |
+          echo "Current workspace structure:"
+          ls -R
+
       - name: Check if viewer files exist
         id: viewer_check
         run: |
