@@ -8,7 +8,7 @@ jobs:
   gds:
     runs-on: ubuntu-24.04
     steps:
-      - name: checkout repo
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -26,7 +26,14 @@ jobs:
           gds_path: gds/${{ steps.top_module.outputs.TOP_MODULE }}.gds
           lef_path: lef/${{ steps.top_module.outputs.TOP_MODULE }}.lef
           verilog_path: src/project.v
-  
+
+      # Upload the viewer files as artifact for later use in viewer job
+      - name: Upload Viewer Files
+        uses: actions/upload-artifact@v4
+        with:
+          name: viewer-files
+          path: ./viewer   # Adjust if viewer files are generated elsewhere
+
   precheck:
     needs: gds
     runs-on: ubuntu-24.04
@@ -38,7 +45,25 @@ jobs:
     needs: gds
     runs-on: ubuntu-24.04
     permissions:
-      pages: write      # to deploy to Pages
-      id-token: write   # to verify the deployment originates from an appropriate source
+      pages: write
+      id-token: write
     steps:
-      - uses: TinyTapeout/tt-gds-action/viewer@tt10
+      - name: Download Viewer Files
+        uses: actions/download-artifact@v4
+        with:
+          name: viewer-files
+          path: ./public  # Pages expects the site files in ./public
+
+      # Configure GitHub Pages
+      - name: Configure Pages
+        uses: actions/configure-pages@v4
+
+      # Upload artifact for Pages deployment
+      - name: Upload artifact to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
+
+      # Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
