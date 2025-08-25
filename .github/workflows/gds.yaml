@@ -17,7 +17,7 @@ jobs:
         uses: mikefarah/yq@v4
         id: top_module
         with:
-          cmd: echo TOP_MODULE=`yq '.project.top_module' info.yaml` > $GITHUB_OUTPUT
+          cmd: echo "TOP_MODULE=$(yq '.project.top_module' info.yaml)" >> $GITHUB_OUTPUT
 
       - name: Create and publish the GDS artifact
         uses: TinyTapeout/tt-gds-action/custom_gds@tt10
@@ -27,12 +27,24 @@ jobs:
           lef_path: lef/${{ steps.top_module.outputs.TOP_MODULE }}.lef
           verilog_path: src/project.v
 
+      # Verify if viewer directory exists before upload
+      - name: Check if viewer files exist
+        id: viewer_check
+        run: |
+          if [ -d "./viewer" ] && [ "$(ls -A ./viewer)" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       # Upload the viewer files as artifact for later use in viewer job
       - name: Upload Viewer Files
+        if: steps.viewer_check.outputs.exists == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: viewer-files
-          path: ./viewer   # Adjust if viewer files are generated elsewhere
+          path: ./viewer
+          if-no-files-found: error
 
   precheck:
     needs: gds
@@ -43,6 +55,7 @@ jobs:
 
   viewer:
     needs: gds
+    if: needs.gds.outputs.viewer_check_exists == 'true'
     runs-on: ubuntu-24.04
     permissions:
       pages: write
