@@ -44,15 +44,21 @@ jobs:
       pages: write
       id-token: write
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
       - name: Build viewer
         uses: TinyTapeout/tt-gds-action/viewer@ttsky25a
         with:
           pdk: sky130
 
+      - name: Check generated files
+        run: ls -R
+
       - name: Upload viewer artifact for Pages
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./viewer   # ✅ Correct output directory for viewer files
+          path: ./viewer   # <-- Will change after we confirm correct folder
           name: github-pages-viewer
           retention-days: 1
 
