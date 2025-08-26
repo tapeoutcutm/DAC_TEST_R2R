@@ -27,12 +27,17 @@ jobs:
           lef_path: lef/${{ steps.top_module.outputs.TOP_MODULE }}.lef
           verilog_path: src/project.v
 
+      # Debug: show what files are produced
+      - name: List files after GDS run
+        run: ls -R
+
       # Upload the viewer files as artifact for later use in viewer job
       - name: Upload Viewer Files
+        if: ${{ hashFiles('viewer/**') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: viewer-files
-          path: ./viewer   # Adjust if viewer files are generated elsewhere
+          path: viewer   # adjust if TinyTapeout outputs somewhere else
 
   precheck:
     needs: gds
