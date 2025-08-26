@@ -39,6 +39,7 @@ jobs:
             ./configure
             make -j4 
             sudo make install
+
       - name: Netgen
         shell: bash
         run: |
@@ -47,6 +48,7 @@ jobs:
             ./configure
             make -j4 
             sudo make install
+
       - name: Run LVS
         shell: bash
         run: |
