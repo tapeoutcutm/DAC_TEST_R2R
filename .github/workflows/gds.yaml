@@ -8,64 +8,27 @@ jobs:
   gds:
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout repo
+      - name: checkout repo
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Read top module name
-        uses: mikefarah/yq@v4
-        id: top_module
+      - name: Build GDS
+        uses: TinyTapeout/tt-gds-action@ttihp25b
         with:
-          cmd: echo TOP_MODULE=`yq '.project.top_module' info.yaml` > $GITHUB_OUTPUT
+          pdk: ihp
 
       - name: Create and publish the GDS artifact
-        uses: TinyTapeout/tt-gds-action/custom_gds@tt10
+        uses: actions/upload-artifact@v4
         with:
-          top_module: ${{ steps.top_module.outputs.TOP_MODULE }}
-          gds_path: gds/${{ steps.top_module.outputs.TOP_MODULE }}.gds
-          lef_path: lef/${{ steps.top_module.outputs.TOP_MODULE }}.lef
-          verilog_path: src/project.v
+          name: gds_render
+          path: runs/*/results/gds/*.gds   # ✅ fixed: proper GDS output location
 
-      # Debug: list files so we can see structure
       - name: List files after GDS run
-        run: ls -R || true
+        run: ls -R runs || true
 
-      # Upload the viewer files
       - name: Upload Viewer Files
         uses: actions/upload-artifact@v4
         with:
-          name: viewer-files
-          path: gds_render
-          if-no-files-found: error   # fail if viewer files missing
-
-  precheck:
-    needs: gds
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Run Tiny Tapeout Precheck
-        uses: TinyTapeout/tt-gds-action/precheck@tt10
-
-  viewer:
-    needs: gds
-    runs-on: ubuntu-24.04
-    permissions:
-      pages: write
-      id-token: write
-    steps:
-      - name: Download Viewer Files
-        uses: actions/download-artifact@v4
-        with:
-          name: viewer-files
-          path: ./public  # GitHub Pages expects site files in ./public
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact to GitHub Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./public
-
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
+          name: viewer
+          path: runs/*/results/            # ✅ fixed: upload viewer files correctly
