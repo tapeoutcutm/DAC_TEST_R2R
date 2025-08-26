@@ -27,17 +27,17 @@ jobs:
           lef_path: lef/${{ steps.top_module.outputs.TOP_MODULE }}.lef
           verilog_path: src/project.v
 
-      # Debug: show what files are produced
+      # Debug step
       - name: List files after GDS run
-        run: ls -R
+        run: ls -R runs || true
 
-      # Upload the viewer files as artifact for later use in viewer job
+      # Upload the viewer files
       - name: Upload Viewer Files
-        if: ${{ hashFiles('viewer/**') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: viewer-files
-          path: viewer   # adjust if TinyTapeout outputs somewhere else
+          path: runs/${{ steps.top_module.outputs.TOP_MODULE }}/viewer
+          if-no-files-found: error   # fail early if no files
 
   precheck:
     needs: gds
@@ -59,16 +59,13 @@ jobs:
           name: viewer-files
           path: ./public  # Pages expects the site files in ./public
 
-      # Configure GitHub Pages
       - name: Configure Pages
         uses: actions/configure-pages@v4
 
-      # Upload artifact for Pages deployment
       - name: Upload artifact to GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./public
 
-      # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
