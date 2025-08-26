@@ -8,7 +8,7 @@ jobs:
   lvs:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
+      - name: checkout repo
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -27,18 +27,17 @@ jobs:
         uses: TinyTapeout/volare-action@v1
         with:
           pdk_name: sky130
-          pdk_version: latest   # ✅ use latest valid version
+          pdk_version: 78b7bc32ddb4b6f14f76883c2e2dc5b5de9d1cbc
           pdk_root: /home/runner/pdk
 
       - name: Magic
         shell: bash
         run: |
-          sudo apt-get update
           sudo apt-get install -y m4 python3 libx11-dev tcl-dev tk-dev libcairo2-dev mesa-common-dev libglu1-mesa-dev
           git clone -b $MAGIC_VERSION https://github.com/RTimothyEdwards/magic /tmp/magic
           cd /tmp/magic
           ./configure
-          make -j$(nproc)
+          make -j4 
           sudo make install
 
       - name: Netgen
@@ -47,11 +46,28 @@ jobs:
           git clone -b $NETGEN_VERSION https://github.com/RTimothyEdwards/netgen /tmp/netgen
           cd /tmp/netgen
           ./configure
-          make -j$(nproc)
+          make -j4 
           sudo make install
 
       - name: Run LVS
         shell: bash
         run: |
-          cd mag
-          make lvs
+          set -e
+          echo "📂 Current directory: $(pwd)"
+          echo "📂 Listing files:"
+          ls -R
+          
+          if [ -d "mag" ]; then
+            cd mag
+            echo "➡️ Entered mag/ directory"
+            if [ -f Makefile ]; then
+              echo "✅ Makefile found, running LVS..."
+              make lvs
+            else
+              echo "❌ No Makefile found in mag/"
+              exit 1
+            fi
+          else
+            echo "❌ mag/ directory not found"
+            exit 1
+          fi
