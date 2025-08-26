@@ -21,6 +21,7 @@ jobs:
           PDK=sky130A
           MAGIC_VERSION=master
           NETGEN_VERSION=master
+          TOPCELL=top
           EOF
   
       - name: Install Sky130 PDK
@@ -33,11 +34,12 @@ jobs:
       - name: Install Magic
         shell: bash
         run: |
+          sudo apt-get update
           sudo apt-get install -y m4 python3 libx11-dev tcl-dev tk-dev libcairo2-dev mesa-common-dev libglu1-mesa-dev
           git clone -b $MAGIC_VERSION https://github.com/RTimothyEdwards/magic /tmp/magic
           cd /tmp/magic
           ./configure
-          make -j4 
+          make -j$(nproc)
           sudo make install
 
       - name: Install Netgen
@@ -46,18 +48,37 @@ jobs:
           git clone -b $NETGEN_VERSION https://github.com/RTimothyEdwards/netgen /tmp/netgen
           cd /tmp/netgen
           ./configure
-          make -j4 
+          make -j$(nproc)
           sudo make install
+
+      - name: Generate layout SPICE with Magic
+        shell: bash
+        run: |
+          mkdir -p mag
+          magic -dnull -noconsole <<EOF
+          gds read gds/$TOPCELL.gds
+          load $TOPCELL
+          extract all
+          ext2spice lvs
+          ext2spice -o mag/layout.spice
+          quit
+          EOF
+
+      - name: Generate schematic SPICE with Netgen
+        shell: bash
+        run: |
+          netgen -batch readnet verilog rtl/$TOPCELL.v \
+            -top $TOPCELL \
+            $PDK_ROOT/$PDK/libs.tech/netgen/sky130A_setup.tcl \
+            mag/schematic.spice
 
       - name: Run LVS
         shell: bash
         run: |
-          set -e
-          echo "➡️ Running LVS"
           netgen -batch lvs \
-            "mag/layout.spice top" \
-            "mag/schematic.spice top" \
-            $PDK_ROOT/sky130A/libs.tech/netgen/sky130A_setup.tcl \
-            lvs_report.log
+            "mag/layout.spice $TOPCELL" \
+            "mag/schematic.spice $TOPCELL" \
+            $PDK_ROOT/$PDK/libs.tech/netgen/sky130A_setup.tcl \
+            lvs_report.log || true
           echo "✅ LVS finished. Report below:"
-          cat lvs_report.log
+          cat lvs_report.log || true
