@@ -1,6 +1,5 @@
 PROJECT_NAME ?= tt_um_mattvenn_r2r_dac_3v3
 MAGIC_RC := $(PDK_ROOT)/sky130A/libs.tech/magic/sky130A.magicrc
-
 TEMPLATE_FILE := tt_analog_1x2_3v3.def
 
 .PHONY: lvs magic start clean drc antenna update_gds
