@@ -4,80 +4,46 @@ on:
   push:
   workflow_dispatch:
 
-permissions: # Required for Pages
-  contents: read
-  pages: write
-  id-token: write
-
 jobs:
   gds:
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout repo
+      - name: checkout repo
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Build GDS
-        uses: TinyTapeout/tt-gds-action@ttsky25a
+      - name: Read top module name
+        uses: mikefarah/yq@v4
+        id: top_module
+        with:
+          cmd: echo TOP_MODULE=`yq '.project.top_module' info.yaml` > $GITHUB_OUTPUT
+
+      - name: Create and publish the GDS artifact
+        uses: TinyTapeout/tt-gds-action/custom_gds@ttsky25a
+        with:
+          top_module: ${{ steps.top_module.outputs.TOP_MODULE }}
+          gds_path: gds/${{ steps.top_module.outputs.TOP_MODULE }}.gds
+          lef_path: lef/${{ steps.top_module.outputs.TOP_MODULE }}.lef
+          verilog_path: src/project.v
+
+  precheck:
+    needs: gds
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Run Tiny Tapeout Precheck
+        uses: TinyTapeout/tt-gds-action/precheck@ttsky25a
         with:
           pdk: sky130
           tools-ref: ttsky25a
-
-      - name: Check generated files
-        run: ls -R
-
-      - name: Upload GDS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: gds-artifact
-          path: ./gds  # Adjust if GDS output folder is different
-          retention-days: 1
-
-  precheck:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Run precheck
-        uses: TinyTapeout/tt-precheck-action@ttsky25a
 
   viewer:
     needs: gds
     runs-on: ubuntu-24.04
     permissions:
-      pages: write
-      id-token: write
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Download GDS artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: gds-artifact
-          path: ./gds_files
-
-      - name: Build viewer
-        uses: TinyTapeout/tt-gds-action/viewer@ttsky25a
+      - uses: TinyTapeout/tt-gds-action/viewer@ttsky25a
         with:
           pdk: sky130
-          gds_path: ./gds_files
-
-      - name: Check viewer files
-        run: ls -R
-
-      - name: Upload viewer artifact for Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./viewer  # Adjust after confirming actual viewer output folder
-          name: github-pages-viewer
-          retention-days: 1
-
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages-viewer
