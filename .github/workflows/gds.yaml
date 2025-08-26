@@ -41,8 +41,8 @@ jobs:
     needs: gds
     runs-on: ubuntu-24.04
     permissions:
-      pages: write      # to deploy to Pages
-      id-token: write   # to verify the deployment originates from an appropriate source
+      pages: write
+      id-token: write
     steps:
       - name: Build viewer
         uses: TinyTapeout/tt-gds-action/viewer@ttsky25a
@@ -52,7 +52,7 @@ jobs:
       - name: Upload viewer artifact for Pages
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./viewer_output    # Replace with actual viewer output directory
+          path: ./viewer   # ✅ Correct output directory for viewer files
           name: github-pages-viewer
           retention-days: 1
 
