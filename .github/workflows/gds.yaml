@@ -8,7 +8,7 @@ jobs:
   gds:
     runs-on: ubuntu-24.04
     steps:
-      - name: checkout repo
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -44,6 +44,19 @@ jobs:
       pages: write      # to deploy to Pages
       id-token: write   # to verify the deployment originates from an appropriate source
     steps:
-      - uses: TinyTapeout/tt-gds-action/viewer@ttsky25a
+      - name: Build viewer
+        uses: TinyTapeout/tt-gds-action/viewer@ttsky25a
         with:
           pdk: sky130
+
+      - name: Upload viewer artifact for Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./viewer_output    # Replace with actual viewer output directory
+          name: github-pages-viewer
+          retention-days: 1
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-viewer
