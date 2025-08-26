@@ -8,27 +8,62 @@ jobs:
   gds:
     runs-on: ubuntu-24.04
     steps:
-      - name: checkout repo
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Build GDS
-        uses: TinyTapeout/tt-gds-action@ttihp25b
+      - name: Read top module name
+        uses: mikefarah/yq@v4
+        id: top_module
         with:
-          pdk: ihp
+          cmd: echo TOP_MODULE=`yq '.project.top_module' info.yaml` > $GITHUB_OUTPUT
 
       - name: Create and publish the GDS artifact
-        uses: actions/upload-artifact@v4
+        uses: TinyTapeout/tt-gds-action/custom_gds@tt10
         with:
-          name: gds_render
-          path: runs/*/results/gds/*.gds   # ✅ fixed: proper GDS output location
+          top_module: ${{ steps.top_module.outputs.TOP_MODULE }}
+          gds_path: gds/${{ steps.top_module.outputs.TOP_MODULE }}.gds
+          lef_path: lef/${{ steps.top_module.outputs.TOP_MODULE }}.lef
+          verilog_path: src/project.v
 
-      - name: List files after GDS run
-        run: ls -R runs || true
-
+      # Upload the viewer files as artifact for later use in viewer job
       - name: Upload Viewer Files
         uses: actions/upload-artifact@v4
         with:
-          name: viewer
-          path: runs/*/results/            # ✅ fixed: upload viewer files correctly
+          name: viewer-files
+          path: ./viewer   # Adjust if viewer files are generated elsewhere
+
+  precheck:
+    needs: gds
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Run Tiny Tapeout Precheck
+        uses: TinyTapeout/tt-gds-action/precheck@tt10
+
+  viewer:
+    needs: gds
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Download Viewer Files
+        uses: actions/download-artifact@v4
+        with:
+          name: viewer-files
+          path: ./public  # Pages expects the site files in ./public
+
+      # Configure GitHub Pages
+      - name: Configure Pages
+        uses: actions/configure-pages@v4
+
+      # Upload artifact for Pages deployment
+      - name: Upload artifact to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
+
+      # Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
