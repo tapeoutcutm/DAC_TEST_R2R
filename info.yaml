@@ -1,8 +1,8 @@
 # Tiny Tapeout project information
 project:
   title:        "Analog 8 bit 3.3v R2R DAC"      # Project title
-  author:       "Matt Venn"      # Your name
-  discord:      "mattvenn"       # Discord username (optional)
+  author:       "CUTM"      # Your name
+  discord:      ""       # Discord username (optional)
   description:  "A simple 8 bit DAC with a sine waveform driver and 3.3v output" # One line description
   language:     "Verilog"        # ✅ Changed from Analog → Verilog
   clock_hz:     0                # Set clock freq if you use a clock, else 0
@@ -15,7 +15,7 @@ project:
   uses_3v3: true                 # ✅ You’re using 3.3V output
 
   # Your top module name must start with "tt_um_". Must match your Verilog top module exactly!
-  top_module:  "tt_um_mattvenn_r2r_dac_3v3"
+  top_module:  "tt_um_dac_test3v3"
 
   # List your project's source files here. Source files must be in ./src
   source_files:        
