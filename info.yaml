@@ -1,6 +1,6 @@
 # Tiny Tapeout project information
 project:
-  title:        "Analog 8 bit 3.3v R2R DAC"      # Project title
+  title:        "Design and Implementation of R-2R Ladder DAC"      # Project title
   author:       "CUTM"      # Your name
   discord:      ""       # Discord username (optional)
   description:  "A simple 8 bit DAC with a sine waveform driver and 3.3v output" # One line description
