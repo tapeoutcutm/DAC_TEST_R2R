@@ -4,7 +4,7 @@ project:
   author:       "CUTM"      # Your name
   discord:      ""       # Discord username (optional)
   description:  "A simple 8 bit DAC with a sine waveform driver and 3.3v output" # One line description
-  language:     "Verilog"        # ✅ Changed from Analog → Verilog
+  language:     "Verilog"        
   clock_hz:     0                # Set clock freq if you use a clock, else 0
 
   # How many tiles your design occupies? A single tile is about 167x108 uM.
